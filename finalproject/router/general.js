@@ -12,19 +12,51 @@ const public_users = express.Router();
 public_users.post("/register", (req,res) => {
 
     //Write your code here
-    const username = req.body.username;
-    const password = req.body.password;
-    
-    if (username && password) {
-        if (!isValid(username)) {
-            // Your code here
-            users.push({"username":username,"password":password});
-      return res.status(200).json({message: "Customer successfully registred. Now you can login"});
-    } else {
-      return res.status(404).json({message: "Customer with same username already exists!"});  
+
+    app.post('/customer/login', function(req, res) {
+        const username = req.body.username;
+        const password = req.body.password;
+      
+        // Check if username and password are provided
+        if (!username || !password) {
+          res.status(400).json({ message: 'Username and password are required.' });
+          return;
         }
-    }
-    return res.status(300).json({message:   "Unable to register customer"});
+      
+        // Check if the username and password match the registered user
+        if (!checkIfUsernameAndPasswordMatch(username, password)) {
+          res.status(401).json({ message: 'Invalid username and/or password.' });
+          return;
+        }
+      
+        // Generate a JWT token for the authenticated user
+        const token = generateToken(username);
+      
+        // Save the token in the session or send it as a response
+        res.status(200).json({ token: token });
+      });
+    
+    app.post('/register', function(req, res) {
+  const username = req.body.username;
+  const password = req.body.password;
+
+  // Check if username and password are provided
+  if (!username || !password) {
+    res.status(400).json({ message: 'Username and password are required.' });
+    return;
+  }
+
+  // Check if the username already exists
+  if (checkIfUsernameExists(username)) {
+    res.status(409).json({ message: 'Username already exists.' });
+    return;
+  }
+
+  // Register the new user
+  registerUser(username, password);
+
+  res.status(201).json({ message: 'User registered successfully.' });
+});
   
   });
 
@@ -89,6 +121,63 @@ public_users.get('/title/:title', function (req, res) {
 //  Get book review
 public_users.get('/review/:isbn',function (req, res) {
   //Write your code here
+  regd_users.delete("/auth/review/:isbn", (req, res) => {
+    const isbn = req.params.isbn;
+    const username = req.session.username;
+  
+    // Check if the username is provided
+    if (!username) {
+      res.status(400).json({ message: 'Username is required.' });
+      return;
+    }
+  
+    // Filter and delete the reviews based on the session username
+    const filteredReviews = deleteReviewsByUser(isbn, username);
+  
+    if (filteredReviews.length > 0) {
+      res.status(200).json({ message: 'Review(s) deleted successfully.' });
+    } else {
+      res.status(404).json({ message: 'No reviews found for the given ISBN and username.' });
+    }
+  });
+  app.post('/review/:isbn', function(req, res) {
+    const isbn = req.params.isbn;
+    const review = req.query.review;
+    const username = req.session.username;
+  
+    // Check if the review and username are provided
+    if (!review || !username) {
+      res.status(400).json({ message: 'Review and username are required.' });
+      return;
+    }
+  
+    // Check if the user has already posted a review for the same ISBN
+    const existingReview = getExistingReview(isbn, username);
+  
+    if (existingReview) {
+      // Modify the existing review
+      modifyReview(isbn, username, review);
+      res.status(200).json({ message: 'Review modified successfully.' });
+    } else {
+      // Add a new review
+      addReview(isbn, username, review);
+      res.status(201).json({ message: 'Review added successfully.' });
+    }
+  });
+  public_users.get('/review/:isbn', function (req, res) {
+  const isbn = req.params.isbn;
+  
+  // Assuming you have a database or some data source where the book reviews are stored
+  // You can fetch the book reviews based on the provided ISBN
+  const bookReviews = fetchBookReviews(isbn);
+  
+  // Check if any book reviews were found
+  if (bookReviews.length > 0) {
+    res.status(200).json(bookReviews);
+  } else {
+    res.status(404).json({ message: 'No book reviews found for the provided ISBN.' });
+  }
+});
   const isbn = req.params.isbn;
   res.send(review[isbn])
   
